@@ -53,45 +53,6 @@ st.write(
 )
 
 # ----------------------------------------------
-# ESTADO DEL ESTUDIANTE
-# ----------------------------------------------
-
-with st.sidebar:
-
-    st.subheader(
-        "Estado del estudiante"
-    )
-
-    estudiante = (
-        st.session_state.estudiante
-    )
-
-    st.write(
-        "Nombre:",
-        estudiante["nombre"]
-    )
-
-    st.write(
-        "Programa:",
-        estudiante["programa"]
-    )
-
-    st.write(
-        "Semestre:",
-        estudiante["semestre"]
-    )
-
-    st.divider()
-
-    if st.button(
-        "Reiniciar conversación"
-    ):
-
-        reiniciar_estado()
-
-        st.rerun()
-
-# ----------------------------------------------
 # HISTORIAL
 # ----------------------------------------------
 
@@ -163,3 +124,42 @@ if prompt:
         "assistant",
         respuesta
     )
+
+# ----------------------------------------------
+# ESTADO DEL ESTUDIANTE
+# ----------------------------------------------
+
+with st.sidebar:
+
+    st.subheader(
+        "Estado del estudiante"
+    )
+
+    estudiante = (
+        st.session_state.estudiante
+    )
+
+    st.write(
+        "Nombre:",
+        estudiante["nombre"]
+    )
+
+    st.write(
+        "Programa:",
+        estudiante["programa"]
+    )
+
+    st.write(
+        "Semestre:",
+        estudiante["semestre"]
+    )
+
+    st.divider()
+
+    if st.button(
+        "Reiniciar conversación"
+    ):
+
+        reiniciar_estado()
+
+        st.rerun()
