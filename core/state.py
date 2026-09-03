@@ -25,6 +25,19 @@ SEMESTRES = {
 
 }
 
+CONECTORES_PROGRAMA = {"de", "y"}
+
+def _formatear_programa(texto: str) -> str:
+
+    palabras = texto.strip().split()
+
+    return " ".join(
+        palabra.lower()
+        if palabra.lower() in CONECTORES_PROGRAMA and indice != 0
+        else palabra.capitalize()
+        for indice, palabra in enumerate(palabras)
+    )
+
 def inicializar_estado() -> None:
 
     if "estudiante" not in st.session_state:
@@ -60,7 +73,27 @@ def actualizar_estado_estudiante(
             "nombre"
         ] = coincidencia.group(1).capitalize()
 
-    if (
+    patron_programa = (
+        r"de\s+([A-Za-zÁÉÍÓÚáéíóúÑñ]+"
+        r"(?:\s+[A-Za-zÁÉÍÓÚáéíóúÑñ]+)*?)"
+        r"\s+de\s+\d{1,2}"
+    )
+
+    coincidencia_programa = re.search(
+        patron_programa,
+        texto,
+        re.IGNORECASE
+    )
+
+    if coincidencia_programa:
+
+        st.session_state.estudiante[
+            "programa"
+        ] = _formatear_programa(
+            coincidencia_programa.group(1)
+        )
+
+    elif (
         "ingeniería de sistemas" in texto_lower
         or "ingenieria de sistemas" in texto_lower
     ):
@@ -69,15 +102,34 @@ def actualizar_estado_estudiante(
             "programa"
         ] = "Ingeniería de Sistemas"
 
-    for descripcion, numero in SEMESTRES.items():
+    patron_semestre_numero = (
+        r"(\d{1,2})\s*"
+        r"(?:er|ro|do|to|vo|mo|no)?\s*"
+        r"semestre"
+    )
 
-        if descripcion in texto_lower:
+    coincidencia_semestre = re.search(
+        patron_semestre_numero,
+        texto_lower
+    )
 
-            st.session_state.estudiante[
-                "semestre"
-            ] = numero
+    if coincidencia_semestre:
 
-            break
+        st.session_state.estudiante[
+            "semestre"
+        ] = coincidencia_semestre.group(1)
+
+    else:
+
+        for descripcion, numero in SEMESTRES.items():
+
+            if descripcion in texto_lower:
+
+                st.session_state.estudiante[
+                    "semestre"
+                ] = numero
+
+                break
 
 def agregar_mensaje(
     role: str,
