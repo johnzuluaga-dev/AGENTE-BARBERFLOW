@@ -5,7 +5,7 @@ load_dotenv()
 
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 
-GEMINI_MODEL = "Gemini 3.5 Flash-Lite"
+GEMINI_MODEL = "gemini-3.5-flash-lite"
 
 def validar_configuracion() -> None:
     if not GEMINI_API_KEY or GEMINI_API_KEY == "TU_API_KEY_AQUI":
