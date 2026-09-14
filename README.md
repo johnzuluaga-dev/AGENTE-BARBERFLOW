@@ -3,7 +3,7 @@
 Agente de agendamiento de citas para una barbería, construido con Streamlit
 y Gemini (function calling).
 
-## documentacion hecha con la IA
+## documentacion y algunos commits hechos con la IA
 
 ## Qué hace
 
