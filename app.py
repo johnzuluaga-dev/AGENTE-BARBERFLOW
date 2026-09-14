@@ -8,7 +8,7 @@ from core.agent import responder
 
 from core.state import (
     agregar_mensaje,
-    actualizar_estado_estudiante,
+    actualizar_estado_cliente,
     inicializar_estado,
     obtener_memoria,
     reiniciar_estado,
@@ -19,8 +19,8 @@ from core.state import (
 # ----------------------------------------------
 
 st.set_page_config(
-    page_title="Agente Académico",
-    page_icon="🎓",
+    page_title="BarberFlow",
+    page_icon="💈",
 )
 
 try:
@@ -40,16 +40,17 @@ inicializar_estado()
 # ----------------------------------------------
 
 st.title(
-    "🎓 Agente Académico"
+    "💈 BarberFlow"
 )
 
 st.caption(
-    "Universidad Católica Luis Amigó"
+    "Agenda tu cita conversando con nuestro asistente"
 )
 
 st.write(
-    "MVP con Gemini, contexto, memoria, "
-    "estado y una herramienta."
+    "Cuéntame qué servicio quieres, para qué día y "
+    "hora, y te confirmo la cita según la "
+    "disponibilidad real del barbero."
 )
 
 # ----------------------------------------------
@@ -73,7 +74,7 @@ for mensaje in (
 # ----------------------------------------------
 
 prompt = st.chat_input(
-    "Escribe tu pregunta académica..."
+    "Escribe tu mensaje..."
 )
 
 if prompt:
@@ -82,7 +83,7 @@ if prompt:
 
         st.markdown(prompt)
 
-    actualizar_estado_estudiante(
+    actualizar_estado_cliente(
         prompt
     )
 
@@ -97,8 +98,8 @@ if prompt:
 
             mensaje_usuario=prompt,
 
-            estudiante=(
-                st.session_state.estudiante
+            cliente=(
+                st.session_state.cliente
             ),
 
             memoria=obtener_memoria(),
@@ -126,32 +127,22 @@ if prompt:
     )
 
 # ----------------------------------------------
-# ESTADO DEL ESTUDIANTE
+# ESTADO DEL CLIENTE
 # ----------------------------------------------
 
 with st.sidebar:
 
     st.subheader(
-        "Estado del estudiante"
+        "Tus datos"
     )
 
-    estudiante = (
-        st.session_state.estudiante
+    cliente = (
+        st.session_state.cliente
     )
 
     st.write(
         "Nombre:",
-        estudiante["nombre"]
-    )
-
-    st.write(
-        "Programa:",
-        estudiante["programa"]
-    )
-
-    st.write(
-        "Semestre:",
-        estudiante["semestre"]
+        cliente["nombre"]
     )
 
     st.divider()

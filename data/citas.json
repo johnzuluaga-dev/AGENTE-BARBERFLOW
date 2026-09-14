@@ -1,0 +1,13 @@
+[
+  {
+    "id": "ed0f7ad2-c8ed-4d4d-a0cb-e18eba9fe84b",
+    "cliente": "John",
+    "servicio": "Corte clásico",
+    "precio": 25000,
+    "fecha": "2026-09-14",
+    "hora": "10:00",
+    "duracion_minutos": 30,
+    "estado": "confirmada",
+    "creado_en": "2026-09-13T19:18:32"
+  }
+]

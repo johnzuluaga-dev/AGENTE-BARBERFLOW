@@ -1,3 +1,5 @@
+from datetime import date
+
 from google import genai
 from google.genai import types
 
@@ -6,89 +8,115 @@ from config.settings import (
     GEMINI_MODEL
 )
 
-from tools.horario_tool import (
-    consultar_horario
+from tools.disponibilidad_tool import (
+    consultar_disponibilidad
+)
+
+from tools.cita_tool import (
+    agendar_cita
+)
+
+from tools.servicios_tool import (
+    cargar_servicios
 )
 
 client = genai.Client(
     api_key=GEMINI_API_KEY
 )
 
+def _catalogo_servicios_texto() -> str:
+
+    return "\n".join(
+        f"- {servicio['nombre']}: "
+        f"{servicio['duracion_minutos']} min, "
+        f"${servicio['precio']:,}"
+        for servicio in cargar_servicios()
+    )
+
 def construir_contexto(
-    estudiante: dict,
+    cliente: dict,
     memoria: str
 ) -> str:
 
+    fecha_actual = date.today().isoformat()
+
     return f"""
-Eres un asistente académico de la
-Universidad Católica Luis Amigó.
+Eres el asistente virtual de agendamiento de
+BarberFlow, una barbería.
 
-Ayudas al estudiante con preguntas
-académicas sencillas.
+Ayudas al cliente a agendar su cita de principio
+a fin dentro de este mismo chat.
 
-ESTADO ACTUAL DEL ESTUDIANTE:
+FECHA ACTUAL: {fecha_actual}
 
-Nombre: {estudiante["nombre"]}
-Programa: {estudiante["programa"]}
-Semestre: {estudiante["semestre"]}
+ESTADO ACTUAL DEL CLIENTE:
+
+Nombre: {cliente["nombre"]}
 
 MEMORIA RECIENTE:
 
 {memoria}
 
-Dispones de una herramienta llamada
-consultar_horario, que ya está filtrada
-automáticamente por el programa y semestre
-del estudiante.
+CATÁLOGO DE SERVICIOS (única fuente válida,
+no ofrezcas nada fuera de esta lista):
 
-Usa consultar_horario cuando el estudiante
-pregunte por:
+{_catalogo_servicios_texto()}
 
-- horarios;
-- clases;
-- días;
-- horas;
-- asignaturas;
-- aulas.
+Dispones de dos herramientas:
 
-Si el estudiante pide "mi horario" completo,
-llama a consultar_horario sin argumentos.
+- consultar_disponibilidad(fecha, servicio):
+  úsala para revisar los horarios reales del
+  barbero en una fecha (formato YYYY-MM-DD),
+  antes de proponer o confirmar cualquier hora.
 
-Si puedes responder utilizando el estado
-o la memoria, responde directamente.
+- agendar_cita(cliente, servicio, fecha, hora):
+  úsala ÚNICAMENTE después de que el cliente
+  haya confirmado explícitamente el servicio,
+  la fecha y la hora exactos.
 
-No inventes información de horarios.
+Reglas obligatorias:
 
-Sé breve, claro y cordial.
+- Nunca inventes servicios, precios ni horarios
+  que no provengan del catálogo o de
+  consultar_disponibilidad.
+- Nunca llames a agendar_cita sin una
+  confirmación explícita del cliente sobre
+  servicio, fecha y hora.
+- Si una hora no está disponible, propone
+  alternativas reales obtenidas de
+  consultar_disponibilidad.
+- No puedes cancelar ni modificar citas ya
+  agendadas; si el cliente lo pide, indícale
+  que debe contactar directamente a la barbería
+  para ese cambio.
+- Sé breve, claro y cordial.
 """.strip()
 
 def responder(
     mensaje_usuario: str,
-    estudiante: dict,
+    cliente: dict,
     memoria: str
 ) -> str:
 
     contexto = construir_contexto(
-        estudiante,
+        cliente,
         memoria
     )
 
-    programa = estudiante["programa"]
-    semestre = estudiante["semestre"]
+    nombre_cliente = cliente["nombre"]
 
-    programa_filtro = (
-        "" if programa == "No registrado" else programa
-    )
-    semestre_filtro = (
-        "" if semestre == "No registrado" else semestre
-    )
-
-    def consultar_horario_estudiante(consulta: str = "") -> dict:
-        """Busca clases del horario del estudiante actual según un criterio de día o asignatura."""
-        return consultar_horario(
-            consulta=consulta,
-            programa=programa_filtro,
-            semestre=semestre_filtro,
+    def agendar_cita_cliente(
+        servicio: str,
+        fecha: str,
+        hora: str,
+        cliente: str = "",
+    ) -> dict:
+        """Agenda la cita del cliente actual una vez que confirmó servicio, fecha y hora."""
+        return agendar_cita(
+            cliente=cliente or nombre_cliente,
+            servicio=servicio,
+            fecha=fecha,
+            hora=hora,
         )
 
     response = client.models.generate_content(
@@ -102,7 +130,8 @@ def responder(
             system_instruction=contexto,
 
             tools=[
-                consultar_horario_estudiante
+                consultar_disponibilidad,
+                agendar_cita_cliente,
             ]
 
         )

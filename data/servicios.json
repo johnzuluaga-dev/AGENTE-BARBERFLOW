@@ -1,0 +1,32 @@
+[
+  {
+    "id": "corte_clasico",
+    "nombre": "Corte clásico",
+    "duracion_minutos": 30,
+    "precio": 25000
+  },
+  {
+    "id": "corte_barba",
+    "nombre": "Corte + Barba",
+    "duracion_minutos": 45,
+    "precio": 35000
+  },
+  {
+    "id": "afeitado",
+    "nombre": "Afeitado tradicional",
+    "duracion_minutos": 20,
+    "precio": 15000
+  },
+  {
+    "id": "diseno_barba",
+    "nombre": "Diseño de barba",
+    "duracion_minutos": 20,
+    "precio": 15000
+  },
+  {
+    "id": "corte_infantil",
+    "nombre": "Corte infantil",
+    "duracion_minutos": 25,
+    "precio": 20000
+  }
+]
