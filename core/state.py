@@ -23,7 +23,8 @@ def actualizar_estado_cliente(
 ) -> None:
 
     patron_nombre = (
-        r"(?:soy|me llamo)\s+"
+        r"(?:soy|me llamo|mi nombre es|"
+        r"puedes llamarme|llámame|llamame)\s+"
         r"([A-Za-zÁÉÍÓÚáéíóúÑñ]+)"
     )
 
