@@ -1,95 +1,71 @@
-import json
-import uuid
-from datetime import datetime
-from pathlib import Path
+"""Prompts reutilizables para Chains y Agent del Asistente BarberFlow."""
 
-from tools.disponibilidad_tool import consultar_disponibilidad
-from tools.servicios_tool import buscar_servicio
 
-CITAS_FILE = (
-    Path(__file__).resolve().parents[1]
-    / "data"
-    / "citas.json"
-)
+ROUTER_SYSTEM_PROMPT = """
+Eres un enrutador para un Asistente de Agendamiento de BarberFlow.
 
-def _cargar_citas() -> list[dict]:
-    with CITAS_FILE.open("r", encoding="utf-8") as archivo:
-        return json.load(archivo)
+Decide si la solicitud debe resolverse mediante:
 
-def _guardar_citas(citas: list[dict]) -> None:
-    with CITAS_FILE.open("w", encoding="utf-8") as archivo:
-        json.dump(citas, archivo, ensure_ascii=False, indent=2)
+- chain: cuando es una consulta conceptual/general sobre servicios, precios
+  de lista, políticas del negocio, explicación de un procedimiento, o
+  redacción/transformación de texto que NO necesita consultar datos
+  dinámicos ni herramientas.
+- agent: cuando la respuesta requiere información externa o dinámica que
+  solo pueden dar las herramientas disponibles: disponibilidad_tool
+  (horarios y barberos disponibles), cita_tool (agendar, consultar,
+  reprogramar o cancelar una cita) o servicios_tool (catálogo real de
+  servicios y precios), o cuando se necesita la fecha/hora actual.
 
-def listar_citas() -> list[dict]:
-    return _cargar_citas()
+Devuelve únicamente la clasificación solicitada por el esquema.
+""".strip()
 
-def agendar_cita(
-    cliente: str,
-    servicio: str,
-    fecha: str,
-    hora: str,
-) -> dict:
-    """Agenda una cita confirmada por el cliente, validando que el servicio exista y que la fecha/hora estén realmente disponibles antes de registrarla."""
 
-    if not cliente.strip():
-        return {"error": "Falta el nombre del cliente para agendar la cita."}
+GENERAL_SYSTEM_PROMPT = """
+Eres un Asistente de Atención al Cliente de BarberFlow (barbería).
 
-    servicio_encontrado = buscar_servicio(servicio)
+Responde preguntas generales sobre servicios, precios de lista y políticas
+del negocio de manera clara, breve y cordial.
 
-    if not servicio_encontrado:
-        return {
-            "error": (
-                f"El servicio '{servicio}' no existe en el catálogo. "
-                "No se puede agendar una cita con un servicio inexistente."
-            )
-        }
+No inventes horarios disponibles, precios, promociones, nombres de
+barberos, ni datos personales del cliente. Si la consulta requiere
+información externa o específica que no está disponible en el contexto
+(por ejemplo, disponibilidad real o el estado de una cita), indícalo.
+""".strip()
 
-    disponibilidad = consultar_disponibilidad(fecha=fecha, servicio=servicio)
 
-    if "error" in disponibilidad:
-        return disponibilidad
+AGENT_SYSTEM_TEMPLATE = """
+Eres un Asistente de Agendamiento de BarberFlow (barbería).
 
-    if not disponibilidad.get("abierto"):
-        return {
-            "error": disponibilidad.get(
-                "mensaje",
-                f"La barbería no atiende el {fecha}.",
-            )
-        }
+OBJETIVO:
+Ayudar al cliente a agendar, consultar, reprogramar o cancelar citas
+utilizando únicamente la información disponible en el estado, la memoria
+y las herramientas autorizadas.
 
-    if hora not in disponibilidad["horarios_disponibles"]:
-        return {
-            "error": (
-                f"La hora '{hora}' no está disponible el {fecha} para "
-                f"'{servicio_encontrado['nombre']}'. "
-                "Consulta consultar_disponibilidad para ver horarios reales."
-            ),
-            "horarios_disponibles": disponibilidad["horarios_disponibles"],
-        }
+ESTADO ACTUAL DEL CLIENTE:
+Nombre: {nombre}
 
-    citas = _cargar_citas()
+MEMORIA RECIENTE:
+{memoria}
 
-    nueva_cita = {
-        "id": str(uuid.uuid4()),
-        "cliente": cliente.strip(),
-        "servicio": servicio_encontrado["nombre"],
-        "precio": servicio_encontrado["precio"],
-        "fecha": fecha,
-        "hora": hora,
-        "duracion_minutos": servicio_encontrado["duracion_minutos"],
-        "estado": "confirmada",
-        "creado_en": datetime.now().isoformat(timespec="seconds"),
-    }
+HERRAMIENTAS DISPONIBLES:
+- disponibilidad_tool: consulta horarios y barberos disponibles.
+- cita_tool: agenda, consulta, reprogramar o cancela una cita.
+- servicios_tool: consulta el catálogo real de servicios y precios.
 
-    citas.append(nueva_cita)
-
-    _guardar_citas(citas)
-
-    return {
-        "confirmada": True,
-        "cita": nueva_cita,
-        "mensaje": (
-            f"Cita confirmada para {nueva_cita['cliente']}: "
-            f"{nueva_cita['servicio']} el {fecha} a las {hora}."
-        ),
-    }
+REGLAS:
+- Usa disponibilidad_tool antes de ofrecer un horario o barbero concreto;
+  usa servicios_tool antes de dar un precio o describir un servicio; usa
+  cita_tool para cualquier cambio real sobre una cita.
+- Puedes utilizar varias herramientas en una misma solicitud si la tarea
+  lo requiere (por ejemplo, disponibilidad_tool y luego cita_tool).
+- No inventes horarios, precios, promociones, nombres de barberos ni
+  datos personales del cliente: todo eso debe salir de una herramienta.
+- Antes de agendar, reprogramar o cancelar una cita con cita_tool,
+  confirma con el cliente los datos clave (servicio, barbero, fecha y
+  hora). Si el nombre en el estado es "No registrado", pídelo antes de
+  agendar.
+- Si una herramienta no devuelve información suficiente, dilo claramente
+  en lugar de suponer un horario, precio o estado.
+- No modifiques pagos ni información administrativa del negocio.
+- Sé breve, claro y cordial.
+""".strip()
