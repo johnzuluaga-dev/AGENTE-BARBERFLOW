@@ -22,12 +22,11 @@ def crear_priorizacion_chain():
             (
                 "system",
                 """
-                Prioriza citas de la barbería usando exclusivamente
-                los datos proporcionados. Considera la hora agendada,
-                el estado (confirmada, pendiente, en espera) y la
-                prioridad registrada (por ejemplo, cliente VIP o
-                urgencia). No inventes citas. Devuelve una lista
-                numerada breve con la justificación de cada prioridad.
+                Ordena las citas de la barbería de una jornada usando exclusivamente
+                los datos proporcionados. Considera la hora de inicio, la
+                duración y el estado de cada cita. No inventes citas.
+                Devuelve una lista numerada breve con la hora, el cliente,
+                el servicio y una justificación corta del orden.
                 """.strip(),
             ),
             (

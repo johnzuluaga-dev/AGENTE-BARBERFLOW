@@ -1,7 +1,7 @@
 import json
 from datetime import datetime, timedelta
 from pathlib import Path
-
+from langchain.tools import tool
 from tools.servicios_tool import buscar_servicio
 
 HORARIOS_FILE = (
@@ -43,7 +43,7 @@ def _a_minutos(hora: str) -> int:
 
 def _a_hora(minutos: int) -> str:
     return f"{minutos // 60:02d}:{minutos % 60:02d}"
-
+@tool
 def consultar_disponibilidad(
     fecha: str,
     servicio: str = "",

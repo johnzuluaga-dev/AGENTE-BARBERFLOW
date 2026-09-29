@@ -1,143 +1,114 @@
-from datetime import date
+"""Núcleo de BarberFlow  con LangChain.
 
-from google import genai
-from google.genai import types
+Decide si una solicitud se resuelve con una Chain determinista o con un
+Agent que dispone de 6 Tools.
+"""
 
-from config.settings import (
-    GEMINI_API_KEY,
-    GEMINI_MODEL
-)
+from typing import TypedDict
 
-from tools.disponibilidad_tool import (
-    consultar_disponibilidad
-)
+from langchain.agents import create_agent
+from langchain_google_genai import ChatGoogleGenerativeAI
 
-from tools.cita_tool import (
-    agendar_cita
-)
+from chains.response_chain import crear_respuesta_chain
+from chains.router_chain import crear_router_chain
+from config.settings import GEMINI_API_KEY, GEMINI_MODEL
+from prompts.Barber_prompt import AGENT_SYSTEM_TEMPLATE
+from tools.cita_tool import agendar_cita, consultar_citas, priorizar_citas
+from tools.disponibilidad_tool import consultar_disponibilidad
+from tools.fecha_tool import obtener_fecha
+from tools.servicios_tool import consultar_servicios
 
-from tools.servicios_tool import (
-    cargar_servicios
-)
 
-client = genai.Client(
-    api_key=GEMINI_API_KEY
-)
+class Cliente(TypedDict):
+    nombre: str
 
-def _catalogo_servicios_texto() -> str:
 
-    return "\n".join(
-        f"- {servicio['nombre']}: "
-        f"{servicio['duracion_minutos']} min, "
-        f"${servicio['precio']:,}"
-        for servicio in cargar_servicios()
-    )
+TOOLS = [
+    obtener_fecha,
+    consultar_servicios,
+    consultar_disponibilidad,
+    agendar_cita,
+    consultar_citas,
+    priorizar_citas,
+]
 
-def construir_contexto(
-    cliente: dict,
-    memoria: str
-) -> str:
 
-    fecha_actual = date.today().isoformat()
-
-    return f"""
-Eres el asistente virtual de agendamiento de
-BarberFlow, una barbería.
-
-Ayudas al cliente a agendar su cita de principio
-a fin dentro de este mismo chat.
-
-FECHA ACTUAL: {fecha_actual}
-
-ESTADO ACTUAL DEL CLIENTE:
-
-Nombre: {cliente["nombre"]}
-
-MEMORIA RECIENTE:
-
-{memoria}
-
-CATÁLOGO DE SERVICIOS (única fuente válida,
-no ofrezcas nada fuera de esta lista):
-
-{_catalogo_servicios_texto()}
-
-Dispones de dos herramientas:
-
-- consultar_disponibilidad(fecha, servicio):
-  úsala para revisar los horarios reales del
-  barbero en una fecha (formato YYYY-MM-DD),
-  antes de proponer o confirmar cualquier hora.
-
-- agendar_cita(cliente, servicio, fecha, hora):
-  úsala ÚNICAMENTE después de que el cliente
-  haya confirmado explícitamente el servicio,
-  la fecha y la hora exactos.
-
-Reglas obligatorias:
-
-- Nunca inventes servicios, precios ni horarios
-  que no provengan del catálogo o de
-  consultar_disponibilidad.
-- Nunca llames a agendar_cita sin una
-  confirmación explícita del cliente sobre
-  servicio, fecha y hora.
-- Si una hora no está disponible, propone
-  alternativas reales obtenidas de
-  consultar_disponibilidad.
-- No puedes cancelar ni modificar citas ya
-  agendadas; si el cliente lo pide, indícale
-  que debe contactar directamente a la barbería
-  para ese cambio.
-- Sé breve, claro y cordial.
-""".strip()
-
-def responder(
-    mensaje_usuario: str,
-    cliente: dict,
-    memoria: str
-) -> str:
-
-    contexto = construir_contexto(
-        cliente,
-        memoria
-    )
-
-    nombre_cliente = cliente["nombre"]
-
-    def agendar_cita_cliente(
-        servicio: str,
-        fecha: str,
-        hora: str,
-        cliente: str = "",
-    ) -> dict:
-        """Agenda la cita del cliente actual una vez que confirmó servicio, fecha y hora."""
-        return agendar_cita(
-            cliente=cliente or nombre_cliente,
-            servicio=servicio,
-            fecha=fecha,
-            hora=hora,
-        )
-
-    response = client.models.generate_content(
-
+def _crear_modelo() -> ChatGoogleGenerativeAI:
+    return ChatGoogleGenerativeAI(
         model=GEMINI_MODEL,
-
-        contents=mensaje_usuario,
-
-        config=types.GenerateContentConfig(
-
-            system_instruction=contexto,
-
-            tools=[
-                consultar_disponibilidad,
-                agendar_cita_cliente,
-            ]
-
-        )
+        api_key=GEMINI_API_KEY,
+        temperature=0.1,
     )
 
-    return (
-        response.text
-        or "No fue posible generar una respuesta."
+
+def _construir_system_prompt(cliente: Cliente, memoria: str) -> str:
+    return AGENT_SYSTEM_TEMPLATE.format(
+        nombre=cliente["nombre"],
+        memoria=memoria or "Sin memoria reciente.",
     )
+
+
+def _extraer_texto_final(result: dict) -> str:
+    mensajes = result.get("messages", [])
+    if not mensajes:
+        return "No fue posible generar una respuesta."
+
+    contenido = mensajes[-1].content
+
+    if isinstance(contenido, str):
+        return contenido or "No fue posible generar una respuesta."
+
+    if isinstance(contenido, list):
+        partes = []
+        for bloque in contenido:
+            if isinstance(bloque, dict) and bloque.get("type") == "text":
+                partes.append(str(bloque.get("text", "")))
+            elif isinstance(bloque, str):
+                partes.append(bloque)
+        texto = "\n".join(p for p in partes if p).strip()
+        return texto or "No fue posible generar una respuesta."
+
+    return str(contenido)
+
+
+def _detectar_tools_usadas(result: dict) -> list[str]:
+    usadas: list[str] = []
+    for mensaje in result.get("messages", []):
+        for call in getattr(mensaje, "tool_calls", None) or []:
+            nombre = call.get("name")
+            if nombre and nombre not in usadas:
+                usadas.append(nombre)
+    return usadas
+
+
+def responder(mensaje_usuario: str, cliente: Cliente, memoria: str) -> dict:
+    """Responde mediante Chain o Agent según la naturaleza de la consulta."""
+    entrada = {"pregunta": mensaje_usuario, "memoria": memoria or "Sin memoria."}
+
+    decision = crear_router_chain().invoke(entrada)
+
+    if decision.ruta == "chain":
+        texto = crear_respuesta_chain().invoke(entrada)
+        return {
+            "respuesta": texto,
+            "ruta": "Chain",
+            "motivo": decision.motivo,
+            "tools": [],
+        }
+
+    agent = create_agent(
+        model=_crear_modelo(),
+        tools=TOOLS,
+        system_prompt=_construir_system_prompt(cliente, memoria),
+    )
+
+    result = agent.invoke(
+        {"messages": [{"role": "user", "content": mensaje_usuario}]}
+    )
+
+    return {
+        "respuesta": _extraer_texto_final(result),
+        "ruta": "Agent",
+        "motivo": decision.motivo,
+        "tools": _detectar_tools_usadas(result),
+    }

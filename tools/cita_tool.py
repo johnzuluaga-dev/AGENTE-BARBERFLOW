@@ -1,71 +1,112 @@
-"""Prompts reutilizables para Chains y Agent del Asistente BarberFlow."""
+"""Tools para agendar, consultar y priorizar citas."""
+
+import json
+import uuid
+from datetime import date, datetime
+from pathlib import Path
+
+from langchain.tools import tool
+
+from chains.prioritization_chain import (
+    crear_priorizacion_chain,
+    serializar_citas,
+)
+from tools.disponibilidad_tool import consultar_disponibilidad
+from tools.servicios_tool import buscar_servicio
+
+CITAS_FILE = Path(__file__).resolve().parents[1] / "data" / "citas.json"
 
 
-ROUTER_SYSTEM_PROMPT = """
-Eres un enrutador para un Asistente de Agendamiento de BarberFlow.
-
-Decide si la solicitud debe resolverse mediante:
-
-- chain: cuando es una consulta conceptual/general sobre servicios, precios
-  de lista, políticas del negocio, explicación de un procedimiento, o
-  redacción/transformación de texto que NO necesita consultar datos
-  dinámicos ni herramientas.
-- agent: cuando la respuesta requiere información externa o dinámica que
-  solo pueden dar las herramientas disponibles: disponibilidad_tool
-  (horarios y barberos disponibles), cita_tool (agendar, consultar,
-  reprogramar o cancelar una cita) o servicios_tool (catálogo real de
-  servicios y precios), o cuando se necesita la fecha/hora actual.
-
-Devuelve únicamente la clasificación solicitada por el esquema.
-""".strip()
+def listar_citas() -> list[dict]:
+    """Función simple (no es tool): la usa el Panel del barbero."""
+    if not CITAS_FILE.exists():
+        return []
+    with CITAS_FILE.open("r", encoding="utf-8") as archivo:
+        return json.load(archivo)
 
 
-GENERAL_SYSTEM_PROMPT = """
-Eres un Asistente de Atención al Cliente de BarberFlow (barbería).
-
-Responde preguntas generales sobre servicios, precios de lista y políticas
-del negocio de manera clara, breve y cordial.
-
-No inventes horarios disponibles, precios, promociones, nombres de
-barberos, ni datos personales del cliente. Si la consulta requiere
-información externa o específica que no está disponible en el contexto
-(por ejemplo, disponibilidad real o el estado de una cita), indícalo.
-""".strip()
+def _guardar_citas(citas: list[dict]) -> None:
+    with CITAS_FILE.open("w", encoding="utf-8") as archivo:
+        json.dump(citas, archivo, ensure_ascii=False, indent=2)
 
 
-AGENT_SYSTEM_TEMPLATE = """
-Eres un Asistente de Agendamiento de BarberFlow (barbería).
+@tool
+def agendar_cita(cliente: str, servicio: str, fecha: str, hora: str) -> dict:
+    """Agenda una cita. Úsala SOLO tras la confirmación explícita del cliente.
+    fecha en formato YYYY-MM-DD y hora en formato HH:MM (24 h)."""
+    if not cliente or cliente.strip().lower() == "no registrado":
+        return {"error": "Falta el nombre del cliente. Pídeselo antes de agendar."}
 
-OBJETIVO:
-Ayudar al cliente a agendar, consultar, reprogramar o cancelar citas
-utilizando únicamente la información disponible en el estado, la memoria
-y las herramientas autorizadas.
+    servicio_data = buscar_servicio(servicio)
+    if not servicio_data:
+        return {"error": f"El servicio '{servicio}' no existe en el catálogo."}
 
-ESTADO ACTUAL DEL CLIENTE:
-Nombre: {nombre}
+    try:
+        momento = datetime.strptime(f"{fecha} {hora}", "%Y-%m-%d %H:%M")
+    except ValueError:
+        return {"error": "Fecha u hora inválidas. Usa YYYY-MM-DD y HH:MM."}
 
-MEMORIA RECIENTE:
-{memoria}
+    if momento < datetime.now():
+        return {"error": "No se pueden agendar citas en el pasado."}
 
-HERRAMIENTAS DISPONIBLES:
-- disponibilidad_tool: consulta horarios y barberos disponibles.
-- cita_tool: agenda, consulta, reprogramar o cancela una cita.
-- servicios_tool: consulta el catálogo real de servicios y precios.
+    # Reutiliza la lógica de disponibilidad (horario laboral + citas existentes)
+    disponibilidad = consultar_disponibilidad.invoke(
+        {"fecha": fecha, "servicio": servicio_data["nombre"]}
+    )
+    if "error" in disponibilidad:
+        return disponibilidad
+    if hora not in disponibilidad.get("horarios_disponibles", []):
+        return {
+            "error": f"La hora {hora} no está disponible.",
+            "alternativas": disponibilidad.get("horarios_disponibles", [])[:6],
+        }
 
-REGLAS:
-- Usa disponibilidad_tool antes de ofrecer un horario o barbero concreto;
-  usa servicios_tool antes de dar un precio o describir un servicio; usa
-  cita_tool para cualquier cambio real sobre una cita.
-- Puedes utilizar varias herramientas en una misma solicitud si la tarea
-  lo requiere (por ejemplo, disponibilidad_tool y luego cita_tool).
-- No inventes horarios, precios, promociones, nombres de barberos ni
-  datos personales del cliente: todo eso debe salir de una herramienta.
-- Antes de agendar, reprogramar o cancelar una cita con cita_tool,
-  confirma con el cliente los datos clave (servicio, barbero, fecha y
-  hora). Si el nombre en el estado es "No registrado", pídelo antes de
-  agendar.
-- Si una herramienta no devuelve información suficiente, dilo claramente
-  en lugar de suponer un horario, precio o estado.
-- No modifiques pagos ni información administrativa del negocio.
-- Sé breve, claro y cordial.
-""".strip()
+    cita = {
+        "id": str(uuid.uuid4()),
+        "cliente": cliente.strip(),
+        "servicio": servicio_data["nombre"],
+        "precio": servicio_data["precio"],
+        "fecha": fecha,
+        "hora": hora,
+        "duracion_minutos": servicio_data["duracion_minutos"],
+        "estado": "confirmada",
+        "creado_en": datetime.now().isoformat(timespec="seconds"),
+    }
+
+    citas = listar_citas()
+    citas.append(cita)
+    _guardar_citas(citas)
+
+    return {"ok": True, "cita": cita}
+
+
+@tool
+def consultar_citas(cliente: str = "", fecha: str = "") -> dict:
+    """Consulta citas agendadas, filtrando por nombre de cliente y/o fecha
+    (YYYY-MM-DD). Sin filtros devuelve todas las no canceladas."""
+    resultados = [
+        c for c in listar_citas()
+        if c.get("estado", "confirmada") != "cancelada"
+        and (not cliente or cliente.lower().strip() in c["cliente"].lower())
+        and (not fecha or c["fecha"] == fecha)
+    ]
+    return {"cliente": cliente, "fecha": fecha,
+            "resultados": resultados, "cantidad": len(resultados)}
+
+
+@tool
+def priorizar_citas(fecha: str = "", contexto: str = "") -> str:
+    """Ordena y prioriza las citas de una fecha (YYYY-MM-DD) usando una
+    Chain determinista. Si no se indica fecha usa hoy."""
+    fecha = fecha or date.today().isoformat()
+    citas = [
+        c for c in listar_citas()
+        if c["fecha"] == fecha and c.get("estado", "confirmada") != "cancelada"
+    ]
+    if not citas:
+        return f"No hay citas agendadas para {fecha}."
+
+    return crear_priorizacion_chain().invoke(
+        {"citas": serializar_citas(citas),
+         "contexto": contexto or "Sin contexto adicional."}
+    )

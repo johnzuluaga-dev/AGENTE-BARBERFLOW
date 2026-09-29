@@ -35,7 +35,7 @@ def crear_router_chain():
     prompt = ChatPromptTemplate.from_messages(
         [
             ("system", ROUTER_SYSTEM_PROMPT),
-            ("human", "{pregunta}"),
+                      ("human", "Memoria reciente:\n{memoria}\n\nMensaje actual: {pregunta}"),
         ]
     )
 

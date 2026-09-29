@@ -19,7 +19,7 @@ def crear_respuesta_chain():
     prompt = ChatPromptTemplate.from_messages(
         [
             ("system", GENERAL_SYSTEM_PROMPT),
-            ("human", "{pregunta}"),
+                        ("human", "Memoria reciente:\n{memoria}\n\nMensaje actual: {pregunta}"),
         ]
     )
 
