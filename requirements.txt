@@ -3,4 +3,6 @@ google-genai
 python-dotenv
 langchain
 langchain-google-genai
+langgraph
+langgraph-checkpoint
 pydantic

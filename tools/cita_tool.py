@@ -6,15 +6,32 @@ from datetime import date, datetime
 from pathlib import Path
 
 from langchain.tools import tool
+from langchain_core.output_parsers import StrOutputParser
+from langchain_core.prompts import ChatPromptTemplate
+from langchain_google_genai import ChatGoogleGenerativeAI
 
-from chains.prioritization_chain import (
-    crear_priorizacion_chain,
-    serializar_citas,
-)
+from config.settings import GEMINI_API_KEY, GEMINI_MODEL
+from prompts.Barber_prompt import PRIORIZACION_SYSTEM_PROMPT
 from tools.disponibilidad_tool import consultar_disponibilidad
 from tools.servicios_tool import buscar_servicio
 
 CITAS_FILE = Path(__file__).resolve().parents[1] / "data" / "citas.json"
+
+
+def _crear_priorizacion_chain():
+    """Chain fija: datos -> prompt -> modelo -> salida."""
+    model = ChatGoogleGenerativeAI(
+        model=GEMINI_MODEL,
+        api_key=GEMINI_API_KEY,
+        temperature=0.1,
+    )
+    prompt = ChatPromptTemplate.from_messages(
+        [
+            ("system", PRIORIZACION_SYSTEM_PROMPT),
+            ("human", "Citas disponibles:\n{citas}\n\nContexto adicional: {contexto}"),
+        ]
+    )
+    return prompt | model | StrOutputParser()
 
 
 def listar_citas() -> list[dict]:
@@ -106,7 +123,7 @@ def priorizar_citas(fecha: str = "", contexto: str = "") -> str:
     if not citas:
         return f"No hay citas agendadas para {fecha}."
 
-    return crear_priorizacion_chain().invoke(
-        {"citas": serializar_citas(citas),
+    return _crear_priorizacion_chain().invoke(
+        {"citas": json.dumps(citas, ensure_ascii=False, indent=2),
          "contexto": contexto or "Sin contexto adicional."}
     )

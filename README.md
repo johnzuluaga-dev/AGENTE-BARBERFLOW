@@ -1,7 +1,7 @@
 # BarberFlow
 
-Agente de agendamiento de citas para una barbería, construido con Streamlit
-y Gemini (function calling).
+Agente de agendamiento de citas para una barbería, construido con Streamlit,
+Gemini y LangGraph (v03).
 
 ## documentacion y algunos commits hechos con la IA
 
@@ -20,6 +20,21 @@ y Gemini (function calling).
 - `data/horarios.json`: horario laboral del barbero por día de la semana.
 - `data/citas.json`: citas ya agendadas.
 
+## Arquitectura (v03 con LangGraph)
+
+```
+START → enrutador ─┬─ conceptual ─────────────→ nodo_conceptual → END
+                   └─ herramientas → agente_barberia ⇄ herramientas (ToolNode)
+                                           └─ sin tool calls → END
+```
+
+- `graph/state.py`: `BarberState` (mensajes con el reducer `add_messages`,
+  cliente, ruta, motivo, herramientas usadas y traza de nodos).
+- `graph/nodes.py`: nodos enrutador, conceptual, agente y herramientas.
+- `graph/workflow.py`: topología del grafo y compilación con `MemorySaver`.
+- `core/session.py`: un `thread_id` por sesión e invocación del grafo.
+- `tools/__init__.py`: lista `TOOLS_BARBERIA` con las 6 tools.
+
 ## Herramientas del agente
 
 - `consultar_disponibilidad(fecha, servicio)`: calcula horarios libres
@@ -34,4 +49,5 @@ pip install -r requirements.txt
 streamlit run app.py
 ```
 
-Configura `GEMINI_API_KEY` en un archivo `.env` en la raíz del proyecto.
+Configura `GEMINI_API_KEY` (y opcionalmente `GEMINI_MODEL`) en un archivo
+`.env` en la raíz del proyecto.
