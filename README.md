@@ -85,8 +85,11 @@ entrada/salida, tools usadas, modelo que respondió y errores. Se ven en:
 
 Todas las llamadas al modelo usan `with_fallbacks` de LangChain: si
 `GEMINI_MODEL` falla (por ejemplo, error 503 por alta demanda o falta de
-cupo), la misma petición se repite con `GEMINI_MODEL_RESPALDO`. Las métricas
-muestran qué modelo respondió y qué fallos hubo.
+cupo), la misma petición se repite con `GEMINI_MODEL_RESPALDO`. Después de una
+falla, el modelo principal queda **en pausa 10 minutos**
+(`PAUSA_MODELO_PRINCIPAL`) y todas las llamadas van directo al respaldo, para
+no esperar al modelo que está fallando en cada paso. Las métricas muestran qué
+modelo respondió y qué fallos hubo.
 
 ## Instalar y ejecutar
 
@@ -116,7 +119,8 @@ muestran qué modelo respondió y qué fallos hubo.
    Variables opcionales: `GEMINI_MODEL_RESPALDO` (por defecto
    `gemini-3.5-flash-lite`), `GEMINI_EMBEDDING_MODEL` (por defecto
    `gemini-embedding-001`), `TIEMPO_ESPERA_MODELO` (segundos de espera por llamada, por defecto 20)
-   y `REINTENTOS_MODELO` (intentos totales por modelo, por defecto 1).
+   `REINTENTOS_MODELO` (intentos totales por modelo, por defecto 1) y
+   `PAUSA_MODELO_PRINCIPAL` (segundos, por defecto 600).
 
 4. Ejecutar:
 

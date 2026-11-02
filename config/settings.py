@@ -22,6 +22,10 @@ GEMINI_EMBEDDING_MODEL = os.getenv("GEMINI_EMBEDDING_MODEL", "gemini-embedding-0
 TIEMPO_ESPERA_MODELO = int(os.getenv("TIEMPO_ESPERA_MODELO", "20"))
 REINTENTOS_MODELO = int(os.getenv("REINTENTOS_MODELO", "1"))  # intentos totales
 
+# Si el modelo principal falla, se deja de usar durante este tiempo (segundos)
+# y todas las llamadas van directo al modelo de respaldo.
+PAUSA_MODELO_PRINCIPAL = int(os.getenv("PAUSA_MODELO_PRINCIPAL", "600"))
+
 
 def validar_configuracion() -> None:
     """Valida la API Key antes de compilar el grafo."""

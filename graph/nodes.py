@@ -1,9 +1,12 @@
 """Nodos del grafo: reciben el estado y devuelven un diccionario de cambios."""
 
+import logging
 import re
+import time
 from typing import Literal
 
 from langchain_core.messages import BaseMessage, HumanMessage, SystemMessage
+from langchain_core.runnables import RunnableLambda
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langgraph.prebuilt import ToolNode
 from pydantic import BaseModel, Field
@@ -12,6 +15,7 @@ from config.settings import (
     GEMINI_API_KEY,
     GEMINI_MODEL,
     GEMINI_MODEL_RESPALDO,
+    PAUSA_MODELO_PRINCIPAL,
     REINTENTOS_MODELO,
     TIEMPO_ESPERA_MODELO,
 )
@@ -44,17 +48,52 @@ def _crear_modelo(temperature: float, modelo: str = GEMINI_MODEL) -> ChatGoogleG
     )
 
 
+logger = logging.getLogger("barberflow.modelos")
+
+# Hasta cuándo (segundos de time.time()) se salta el modelo principal.
+_principal_en_pausa_hasta = 0.0
+
+
+def principal_en_pausa() -> bool:
+    return time.time() < _principal_en_pausa_hasta
+
+
+def _pausar_principal(error: Exception) -> None:
+    """Tras una falla del modelo principal (sin cupo, saturado o lento), se
+    deja de usar por unos minutos para no esperarlo en cada paso."""
+    global _principal_en_pausa_hasta
+    _principal_en_pausa_hasta = time.time() + PAUSA_MODELO_PRINCIPAL
+    logger.warning(
+        "Modelo principal %s en pausa %s s por: %s",
+        GEMINI_MODEL, PAUSA_MODELO_PRINCIPAL, str(error)[:120],
+    )
+
+
 def _con_respaldo(temperature: float, preparar=lambda modelo: modelo):
     """Modelo principal con un modelo de respaldo (LangChain with_fallbacks).
 
     `preparar` agrega lo que necesite cada nodo (tools o salida estructurada)
-    a los dos modelos por igual.
+    a los dos modelos por igual. Si el principal falló hace poco, se usa
+    directamente el respaldo.
     """
     principal = preparar(_crear_modelo(temperature))
     if not GEMINI_MODEL_RESPALDO or GEMINI_MODEL_RESPALDO == GEMINI_MODEL:
         return principal
+
     respaldo = preparar(_crear_modelo(temperature, GEMINI_MODEL_RESPALDO))
-    return principal.with_fallbacks([respaldo])
+    if principal_en_pausa():
+        return respaldo
+
+    def _invocar_principal(entrada, config):
+        try:
+            return principal.invoke(entrada, config=config)
+        except Exception as error:
+            _pausar_principal(error)
+            raise
+
+    return RunnableLambda(_invocar_principal, name="modelo_principal").with_fallbacks(
+        [respaldo]
+    )
 
 
 def texto_de_mensaje(mensaje: BaseMessage) -> str:
