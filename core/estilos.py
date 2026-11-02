@@ -185,6 +185,31 @@ _CSS_BASE = """
     transform: scale(0.98);
 }
 
+/* Métricas de la barra lateral */
+[data-testid="stSidebar"] [data-testid="stMetric"] {
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid #3A3129;
+    border-radius: 12px;
+    padding: 0.55rem 0.7rem;
+}
+
+[data-testid="stSidebar"] [data-testid="stMetricLabel"] p {
+    font-size: 0.7rem;
+    letter-spacing: 0.04em;
+    color: rgba(237, 229, 216, 0.65);
+}
+
+[data-testid="stSidebar"] [data-testid="stMetricValue"] {
+    font-size: 1.35rem;
+    color: #EDE5D8;
+}
+
+/* Indicador de "pensando…" */
+[data-testid="stSpinner"] {
+    color: var(--bf-texto-suave);
+    font-style: italic;
+}
+
 /* ---------- Avisos ---------- */
 [data-testid="stAlert"] {
     border-radius: 14px;

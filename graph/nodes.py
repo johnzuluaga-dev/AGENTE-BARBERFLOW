@@ -1,5 +1,6 @@
 """Nodos del grafo: reciben el estado y devuelven un diccionario de cambios."""
 
+import re
 from typing import Literal
 
 from langchain_core.messages import BaseMessage, HumanMessage, SystemMessage
@@ -7,7 +8,12 @@ from langchain_google_genai import ChatGoogleGenerativeAI
 from langgraph.prebuilt import ToolNode
 from pydantic import BaseModel, Field
 
-from config.settings import GEMINI_API_KEY, GEMINI_MODEL
+from config.settings import (
+    GEMINI_API_KEY,
+    GEMINI_MODEL,
+    REINTENTOS_MODELO,
+    TIEMPO_ESPERA_MODELO,
+)
 from graph.state import BarberState
 from prompts.Barber_prompt import (
     AGENT_SYSTEM_TEMPLATE,
@@ -32,6 +38,8 @@ def _crear_modelo(temperature: float) -> ChatGoogleGenerativeAI:
         model=GEMINI_MODEL,
         api_key=GEMINI_API_KEY,
         temperature=temperature,
+        timeout=TIEMPO_ESPERA_MODELO,
+        max_retries=REINTENTOS_MODELO,
     )
 
 
@@ -64,8 +72,34 @@ def _conversacion_reciente(state: BarberState, limite: int = 6) -> str:
     return "\n".join(lineas) or "Sin conversación previa."
 
 
+# Mensajes cortos de cortesía que no necesitan que el modelo decida la ruta.
+_SALUDOS = {
+    "hola", "holi", "buenas", "buen dia", "buenos dias", "buenas tardes",
+    "buenas noches", "gracias", "muchas gracias", "mil gracias", "chao",
+    "adios", "hasta luego", "hola como estas", "hola buenas",
+}
+
+
+def _es_saludo(texto: str) -> bool:
+    limpio = texto.lower()
+    for con_tilde, sin_tilde in zip("áéíóú", "aeiou"):
+        limpio = limpio.replace(con_tilde, sin_tilde)
+    limpio = re.sub(r"[^a-zñ ]", " ", limpio)
+    return " ".join(limpio.split()) in _SALUDOS
+
+
 def enrutador_node(state: BarberState) -> dict:
     """Clasifica la consulta como conceptual o de herramientas."""
+    ultimo = state["messages"][-1]
+    if ultimo.type == "human" and _es_saludo(texto_de_mensaje(ultimo)):
+        # Atajo: un saludo va directo al nodo conceptual y se ahorra
+        # una llamada al modelo (respuesta más rápida).
+        return {
+            "ruta": "conceptual",
+            "motivo": "Saludo o agradecimiento: se responde sin herramientas.",
+            "pasos_ejecutados": state.get("pasos_ejecutados", []) + ["enrutador"],
+        }
+
     modelo = _crear_modelo(0).with_structured_output(RutaConsulta)
     decision = modelo.invoke(
         [

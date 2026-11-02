@@ -10,7 +10,12 @@ from langchain_core.output_parsers import StrOutputParser
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_google_genai import ChatGoogleGenerativeAI
 
-from config.settings import GEMINI_API_KEY, GEMINI_MODEL
+from config.settings import (
+    GEMINI_API_KEY,
+    GEMINI_MODEL,
+    REINTENTOS_MODELO,
+    TIEMPO_ESPERA_MODELO,
+)
 from prompts.Barber_prompt import PRIORIZACION_SYSTEM_PROMPT
 from tools.disponibilidad_tool import consultar_disponibilidad
 from tools.servicios_tool import buscar_servicio
@@ -24,6 +29,8 @@ def _crear_priorizacion_chain():
         model=GEMINI_MODEL,
         api_key=GEMINI_API_KEY,
         temperature=0.1,
+        timeout=TIEMPO_ESPERA_MODELO,
+        max_retries=REINTENTOS_MODELO,
     )
     prompt = ChatPromptTemplate.from_messages(
         [

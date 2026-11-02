@@ -1,26 +1,34 @@
 # BarberFlow
 
 Agente de agendamiento de citas para una barbería, construido con Streamlit,
-Gemini y LangGraph (v03).
+Gemini, LangChain y LangGraph.
 
-## documentacion y algunos commits hechos con la IA
+- **App desplegada:** https://agente-barberflow-1.onrender.com
+- **Pruebas, hallazgos y métricas:** [PRUEBAS.md](PRUEBAS.md)
 
 ## Qué hace
 
 - El **cliente** conversa con el asistente en la página principal para
-  agendar su cita: el agente entiende la solicitud, consulta disponibilidad
-  real y confirma la cita solo cuando el cliente confirma servicio, fecha y
-  hora.
-- El **barbero/administrador** revisa la agenda en el panel
+  agendar su cita: el agente entiende la solicitud, consulta la
+  disponibilidad real y confirma la cita solo cuando el cliente confirma
+  servicio, fecha y hora.
+- El asistente también responde preguntas sobre la barbería (horario, formas
+  de pago, cancelaciones, cuidados, etc.) buscando en su base de
+  conocimiento (**RAG**).
+- El **barbero/administrador** revisa la agenda en la página
   "Panel del barbero" (solo lectura).
+- La barra lateral muestra cómo trabajó el agente en cada respuesta: ruta,
+  nodos recorridos, tools usadas y **métricas** (tiempo, llamadas al modelo,
+  tokens y errores).
 
 ## Datos
 
 - `data/servicios.json`: catálogo de servicios y precios.
 - `data/horarios.json`: horario laboral del barbero por día de la semana.
 - `data/citas.json`: citas ya agendadas.
+- `data/conocimiento/barberia.md`: información de la barbería que usa el RAG.
 
-## Arquitectura (v03 con LangGraph)
+## Arquitectura (LangGraph)
 
 ```
 START → enrutador ─┬─ conceptual ─────────────→ nodo_conceptual → END
@@ -30,24 +38,91 @@ START → enrutador ─┬─ conceptual ─────────────
 
 - `graph/state.py`: `BarberState` (mensajes con el reducer `add_messages`,
   cliente, ruta, motivo, herramientas usadas y traza de nodos).
-- `graph/nodes.py`: nodos enrutador, conceptual, agente y herramientas.
-- `graph/workflow.py`: topología del grafo y compilación con `MemorySaver`.
-- `core/session.py`: un `thread_id` por sesión e invocación del grafo.
-- `tools/__init__.py`: lista `TOOLS_BARBERIA` con las 6 tools.
+- `graph/nodes.py`: nodos enrutador, conceptual, agente y herramientas. Los
+  saludos simples ("hola", "gracias") van directo al nodo conceptual sin
+  gastar una llamada al modelo.
+- `graph/workflow.py`: conexiones del grafo y compilación con `MemorySaver`
+  (memoria de la conversación).
+- `core/session.py`: un `thread_id` por sesión, invocación del grafo y
+  registro de métricas.
+- `core/metricas.py`: mide tiempo, llamadas al modelo, tokens, tools y
+  errores de cada respuesta, y los escribe en los logs del servidor.
+- `core/estilos.py` y `.streamlit/config.toml`: diseño visual de la interfaz.
+- `tools/__init__.py`: lista `TOOLS_BARBERIA` con las 7 tools.
 
 ## Herramientas del agente
 
-- `consultar_disponibilidad(fecha, servicio)`: calcula horarios libres
-  cruzando el horario laboral con las citas ya agendadas.
-- `agendar_cita(cliente, servicio, fecha, hora)`: valida que el servicio y el
-  horario sean reales y disponibles, y registra la cita.
+| Tool | Qué hace |
+|---|---|
+| `obtener_fecha` | Fecha, día y hora actuales (para entender "mañana", "el viernes"). |
+| `consultar_servicios` | Catálogo real de servicios, duración y precios. |
+| `consultar_disponibilidad` | Horarios libres de una fecha, cruzando el horario laboral con las citas. |
+| `agendar_cita` | Valida y registra la cita (solo tras la confirmación del cliente). |
+| `consultar_citas` | Citas ya agendadas por cliente y/o fecha. |
+| `priorizar_citas` | Ordena las citas de un día con una chain de LangChain. |
+| `consultar_informacion_barberia` | **RAG**: busca en la información de la barbería. |
 
-## Ejecutar
+## RAG (búsqueda en la información de la barbería)
 
-```bash
-pip install -r requirements.txt
-streamlit run app.py
-```
+1. `data/conocimiento/barberia.md` se divide en fragmentos (uno por sección).
+2. Cada fragmento se convierte en un vector con el modelo de embeddings de
+   Gemini (`gemini-embedding-001`) y se guarda en un `InMemoryVectorStore`.
+3. Ante una pregunta, la tool busca los 3 fragmentos más parecidos y el
+   agente responde solo con esa información.
+4. Si los embeddings fallan, se usa una búsqueda por palabras como respaldo.
+   La tool informa qué método usó (`metodo_busqueda`).
 
-Configura `GEMINI_API_KEY` (y opcionalmente `GEMINI_MODEL`) en un archivo
-`.env` en la raíz del proyecto.
+## Métricas y observabilidad
+
+Cada respuesta registra: tiempo total, llamadas al modelo, tokens de
+entrada/salida, tools usadas y errores. Se ven en:
+
+- la barra lateral de la app (última respuesta + historial de la sesión);
+- los logs del servidor (en Render: pestaña **Logs**), en líneas que
+  empiezan por `METRICAS`.
+
+## Instalar y ejecutar
+
+1. Crear y activar un entorno virtual:
+
+   ```bash
+   python -m venv venv
+   # Windows (PowerShell)
+   .\venv\Scripts\Activate.ps1
+   # macOS / Linux
+   source venv/bin/activate
+   ```
+
+2. Instalar dependencias:
+
+   ```bash
+   pip install -r requirements.txt
+   ```
+
+3. Crear un archivo `.env` en la raíz del proyecto:
+
+   ```
+   GEMINI_API_KEY=tu_clave
+   GEMINI_MODEL=gemini-3.8-flash
+   ```
+
+   Variables opcionales: `GEMINI_EMBEDDING_MODEL` (por defecto
+   `gemini-embedding-001`), `TIEMPO_ESPERA_MODELO` (segundos, por defecto 40)
+   y `REINTENTOS_MODELO` (por defecto 1).
+
+4. Ejecutar:
+
+   ```bash
+   streamlit run app.py
+   ```
+
+## Despliegue (Render)
+
+- Comando de construcción: `pip install -r requirements.txt`
+- Comando de inicio (ejemplo): `streamlit run app.py --server.port $PORT --server.address 0.0.0.0`
+- Variables de entorno en Render → Environment: `GEMINI_API_KEY` y
+  `GEMINI_MODEL`.
+- En el plan gratis la app se apaga si nadie la usa; la primera visita puede
+  tardar cerca de un minuto en abrir.
+- La memoria de la conversación y las citas nuevas se guardan en el servidor,
+  así que se borran cuando Render reinicia la app.

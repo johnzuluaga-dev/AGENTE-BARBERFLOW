@@ -6,6 +6,7 @@ import uuid
 import streamlit as st
 from langchain_core.messages import HumanMessage
 
+from core.metricas import MedidorEjecucion
 from graph.nodes import texto_de_mensaje
 from graph.workflow import crear_grafo_barberia
 
@@ -22,11 +23,14 @@ def obtener_grafo():
     return crear_grafo_barberia()
 
 
-def _config() -> dict:
-    return {
+def _config(callbacks: list | None = None) -> dict:
+    config = {
         "configurable": {"thread_id": st.session_state.thread_id},
         "recursion_limit": LIMITE_RECURSION,
     }
+    if callbacks:
+        config["callbacks"] = callbacks
+    return config
 
 
 def inicializar_sesion() -> None:
@@ -38,6 +42,9 @@ def inicializar_sesion() -> None:
 
     if "ultima_ejecucion" not in st.session_state:
         st.session_state.ultima_ejecucion = EJECUCION_INICIAL.copy()
+
+    if "historial_metricas" not in st.session_state:
+        st.session_state.historial_metricas = []
 
 
 def actualizar_estado_cliente(texto: str) -> None:
@@ -76,7 +83,20 @@ def responder(mensaje_usuario: str) -> str:
         "pasos_ejecutados": [],
     }
 
-    resultado = obtener_grafo().invoke(estado_inicial, config=_config())
+    medidor = MedidorEjecucion(mensaje_usuario)
+    try:
+        resultado = obtener_grafo().invoke(
+            estado_inicial, config=_config([medidor.callback])
+        )
+    except Exception as error:
+        st.session_state.historial_metricas.append(
+            medidor.resultado(ruta="error", error=str(error))
+        )
+        raise
+
+    st.session_state.historial_metricas.append(
+        medidor.resultado(ruta=resultado.get("ruta", ""))
+    )
 
     st.session_state.ultima_ejecucion = {
         "ruta": resultado.get("ruta", "Desconocida"),
@@ -97,3 +117,4 @@ def reiniciar_sesion() -> None:
     st.session_state.thread_id = str(uuid.uuid4())
     st.session_state.cliente = CLIENTE_INICIAL.copy()
     st.session_state.ultima_ejecucion = EJECUCION_INICIAL.copy()
+    st.session_state.historial_metricas = []
