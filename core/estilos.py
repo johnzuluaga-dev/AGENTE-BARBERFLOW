@@ -5,6 +5,8 @@ página en español. No tiene lógica de la app: no lee datos, no cambia el
 estado y no llama al agente.
 """
 
+from pathlib import Path
+
 import streamlit as st
 import streamlit.components.v1 as components
 
@@ -451,7 +453,33 @@ _CSS_OCULTAR_SCRIPT = """
 """
 
 
+@st.cache_resource
+def _marcar_index_en_espanol() -> bool:
+    """Marca en español el index.html que Streamlit envía al navegador.
+
+    El script de arriba llega tarde para Chrome cuando ya tiene activada la
+    traducción automática del inglés: la decide al cargar la página. Por eso,
+    una sola vez al arrancar, se cambia lang="en" por lang="es" y se agrega
+    la etiqueta que le pide a Google no traducir. Si el archivo no se puede
+    modificar, la app sigue igual.
+    """
+    try:
+        index = Path(st.__file__).parent / "static" / "index.html"
+        html = index.read_text(encoding="utf-8")
+        if 'lang="es"' in html:
+            return True
+        html = html.replace('<html lang="en">', '<html lang="es" translate="no">', 1)
+        html = html.replace(
+            "<head>", '<head><meta name="google" content="notranslate" />', 1
+        )
+        index.write_text(html, encoding="utf-8")
+        return True
+    except OSError:
+        return False
+
+
 def aplicar_estilos(pagina: str = "chat") -> None:
     """Inyecta el CSS visual de la página indicada ("chat" o "panel")."""
+    _marcar_index_en_espanol()
     st.html(_CSS_BASE + _CSS_POR_PAGINA.get(pagina, "") + _CSS_OCULTAR_SCRIPT)
     components.html(_SCRIPT_IDIOMA, height=0)
