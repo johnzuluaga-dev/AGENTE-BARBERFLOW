@@ -1,4 +1,7 @@
 import os
+from datetime import datetime
+from zoneinfo import ZoneInfo
+
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -25,6 +28,16 @@ REINTENTOS_MODELO = int(os.getenv("REINTENTOS_MODELO", "1"))  # intentos totales
 # Si el modelo principal falla, se deja de usar durante este tiempo (segundos)
 # y todas las llamadas van directo al modelo de respaldo.
 PAUSA_MODELO_PRINCIPAL = int(os.getenv("PAUSA_MODELO_PRINCIPAL", "600"))
+
+
+# Zona horaria de la barbería. El servidor de Render trabaja en UTC (5 horas
+# adelante de Colombia), así que la hora siempre se calcula con esta zona.
+ZONA_HORARIA = os.getenv("ZONA_HORARIA", "America/Bogota")
+
+
+def ahora() -> datetime:
+    """Fecha y hora actuales en la zona horaria de la barbería."""
+    return datetime.now(ZoneInfo(ZONA_HORARIA)).replace(tzinfo=None)
 
 
 def validar_configuracion() -> None:

@@ -119,8 +119,9 @@ modelo respondió y qué fallos hubo.
    Variables opcionales: `GEMINI_MODEL_RESPALDO` (por defecto
    `gemini-3.5-flash-lite`), `GEMINI_EMBEDDING_MODEL` (por defecto
    `gemini-embedding-001`), `TIEMPO_ESPERA_MODELO` (segundos de espera por llamada, por defecto 20)
-   `REINTENTOS_MODELO` (intentos totales por modelo, por defecto 1) y
-   `PAUSA_MODELO_PRINCIPAL` (segundos, por defecto 600).
+   `REINTENTOS_MODELO` (intentos totales por modelo, por defecto 1),
+   `PAUSA_MODELO_PRINCIPAL` (segundos, por defecto 600) y `ZONA_HORARIA`
+   (por defecto `America/Bogota`; el servidor de Render trabaja en UTC).
 
 4. Ejecutar:
 

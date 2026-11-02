@@ -10,9 +10,10 @@ usadas, modelo que respondió y errores. Cada registro también se escribe en lo
 import json
 import logging
 import time
-from datetime import datetime
 
 from langchain_core.callbacks import BaseCallbackHandler
+
+from config.settings import ahora
 
 logger = logging.getLogger("barberflow.metricas")
 if not logger.handlers:
@@ -81,7 +82,7 @@ class MedidorEjecucion:
             errores.append(error[:200])
 
         registro = {
-            "hora": datetime.now().strftime("%H:%M:%S"),
+            "hora": ahora().strftime("%H:%M:%S"),
             "mensaje": self.mensaje[:60],
             "ruta": ruta or "-",
             "tiempo_s": round(time.perf_counter() - self._inicio, 2),

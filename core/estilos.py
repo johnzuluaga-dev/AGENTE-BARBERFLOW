@@ -1,10 +1,12 @@
 """Estilos visuales de BarberFlow.
 
-Este archivo solo contiene CSS (apariencia). No tiene lógica de la app:
-no lee datos, no cambia el estado y no llama al agente.
+Este archivo solo contiene CSS (apariencia) y un pequeño script que marca la
+página en español. No tiene lógica de la app: no lee datos, no cambia el
+estado y no llama al agente.
 """
 
 import streamlit as st
+import streamlit.components.v1 as components
 
 # ---------------------------------------------------------------------------
 # Estilos comunes a todas las páginas
@@ -427,6 +429,29 @@ _CSS_PANEL = """
 _CSS_POR_PAGINA = {"chat": _CSS_CHAT, "panel": _CSS_PANEL}
 
 
+# Streamlit marca la página como inglés (<html lang="en">), así que Chrome
+# ofrecía "traducirla" y cambiaba textos ("app" -> "aplicación",
+# "solo lectura" -> "lectura en solitario"). Este script marca la página
+# como español y desactiva la traducción automática.
+_SCRIPT_IDIOMA = """
+<script>
+  const raiz = window.parent.document.documentElement;
+  raiz.lang = "es";
+  raiz.setAttribute("translate", "no");
+  raiz.classList.add("notranslate");
+</script>
+"""
+
+_CSS_OCULTAR_SCRIPT = """
+<style>
+[data-testid="stElementContainer"]:has(iframe[height="0"]) {
+    display: none;
+}
+</style>
+"""
+
+
 def aplicar_estilos(pagina: str = "chat") -> None:
     """Inyecta el CSS visual de la página indicada ("chat" o "panel")."""
-    st.html(_CSS_BASE + _CSS_POR_PAGINA.get(pagina, ""))
+    st.html(_CSS_BASE + _CSS_POR_PAGINA.get(pagina, "") + _CSS_OCULTAR_SCRIPT)
+    components.html(_SCRIPT_IDIOMA, height=0)

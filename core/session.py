@@ -47,7 +47,18 @@ def inicializar_sesion() -> None:
         st.session_state.historial_metricas = []
 
 
+# Palabras que pueden seguir a "soy" / "me llamo" y que no son un nombre.
+_NO_NOMBRES = {
+    "y", "e", "o", "u", "el", "la", "los", "las", "un", "una", "de", "del",
+    "que", "qué", "como", "cómo", "nuevo", "nueva", "cliente", "yo",
+}
+
+
 def actualizar_estado_cliente(texto: str) -> None:
+    # Si el cliente pregunta su nombre ("¿cómo me llamo?") no hay nada que guardar.
+    if re.search(r"c[oó]mo\s+me\s+llamo", texto, re.IGNORECASE):
+        return
+
     patron_nombre = (
         r"(?:soy|me llamo|mi nombre es|puedes llamarme|llámame|llamame)\s+"
         r"([A-Za-zÁÉÍÓÚáéíóúÑñ]+)"
@@ -55,7 +66,9 @@ def actualizar_estado_cliente(texto: str) -> None:
     coincidencia = re.search(patron_nombre, texto, re.IGNORECASE)
 
     if coincidencia:
-        st.session_state.cliente["nombre"] = coincidencia.group(1).capitalize()
+        nombre = coincidencia.group(1)
+        if len(nombre) >= 2 and nombre.lower() not in _NO_NOMBRES:
+            st.session_state.cliente["nombre"] = nombre.capitalize()
 
 
 def obtener_historial() -> list[dict]:

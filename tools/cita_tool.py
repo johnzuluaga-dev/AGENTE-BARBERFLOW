@@ -2,7 +2,7 @@
 
 import json
 import uuid
-from datetime import date, datetime
+from datetime import datetime
 from pathlib import Path
 
 from langchain.tools import tool
@@ -16,6 +16,7 @@ from config.settings import (
     GEMINI_MODEL_RESPALDO,
     REINTENTOS_MODELO,
     TIEMPO_ESPERA_MODELO,
+    ahora,
 )
 from prompts.Barber_prompt import PRIORIZACION_SYSTEM_PROMPT
 from tools.disponibilidad_tool import consultar_disponibilidad
@@ -77,7 +78,7 @@ def agendar_cita(cliente: str, servicio: str, fecha: str, hora: str) -> dict:
     except ValueError:
         return {"error": "Fecha u hora inválidas. Usa YYYY-MM-DD y HH:MM."}
 
-    if momento < datetime.now():
+    if momento < ahora():
         return {"error": "No se pueden agendar citas en el pasado."}
 
     # Reutiliza la lógica de disponibilidad (horario laboral + citas existentes)
@@ -101,7 +102,7 @@ def agendar_cita(cliente: str, servicio: str, fecha: str, hora: str) -> dict:
         "hora": hora,
         "duracion_minutos": servicio_data["duracion_minutos"],
         "estado": "confirmada",
-        "creado_en": datetime.now().isoformat(timespec="seconds"),
+        "creado_en": ahora().isoformat(timespec="seconds"),
     }
 
     citas = listar_citas()
@@ -129,7 +130,7 @@ def consultar_citas(cliente: str = "", fecha: str = "") -> dict:
 def priorizar_citas(fecha: str = "", contexto: str = "") -> str:
     """Ordena y prioriza las citas de una fecha (YYYY-MM-DD) usando una
     Chain determinista. Si no se indica fecha usa hoy."""
-    fecha = fecha or date.today().isoformat()
+    fecha = fecha or ahora().date().isoformat()
     citas = [
         c for c in listar_citas()
         if c["fecha"] == fecha and c.get("estado", "confirmada") != "cancelada"

@@ -1,7 +1,6 @@
-from datetime import date
-
 import streamlit as st
 
+from config.settings import ahora
 from core.estilos import aplicar_estilos
 from tools.cita_tool import listar_citas
 
@@ -41,8 +40,8 @@ filtro_fecha = st.selectbox(
     options=["Todas"] + fechas_disponibles,
     index=(
         ["Todas"] + fechas_disponibles
-    ).index(date.today().isoformat())
-    if date.today().isoformat() in fechas_disponibles
+    ).index(ahora().date().isoformat())
+    if ahora().date().isoformat() in fechas_disponibles
     else 0,
 )
 
