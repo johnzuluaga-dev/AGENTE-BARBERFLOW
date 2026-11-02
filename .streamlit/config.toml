@@ -1,0 +1,30 @@
+# Tema visual de BarberFlow (solo apariencia: colores, fuentes y bordes).
+
+[theme]
+base = "light"
+primaryColor = "#B4532A"
+backgroundColor = "#FBF8F3"
+secondaryBackgroundColor = "#F4EEE5"
+textColor = "#1F1B17"
+linkColor = "#B4532A"
+borderColor = "#E6DCCD"
+showWidgetBorder = true
+baseRadius = "12px"
+buttonRadius = "full"
+font = "Inter:https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"
+headingFont = "Playfair Display:https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700&display=swap"
+codeFont = "JetBrains Mono:https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&display=swap"
+codeBackgroundColor = "#F4EEE5"
+codeTextColor = "#8A3E1F"
+dataframeHeaderBackgroundColor = "#F4EEE5"
+dataframeBorderColor = "#EADFD0"
+
+[theme.sidebar]
+backgroundColor = "#1B1714"
+secondaryBackgroundColor = "#26201B"
+textColor = "#EDE5D8"
+primaryColor = "#D9A066"
+linkColor = "#D9A066"
+borderColor = "#3A3129"
+codeBackgroundColor = "#26201B"
+codeTextColor = "#E8C08E"

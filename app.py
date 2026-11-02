@@ -3,6 +3,7 @@
 import streamlit as st
 
 from config.settings import validar_configuracion
+from core.estilos import aplicar_estilos
 from core.session import (
     actualizar_estado_cliente,
     diagrama_mermaid,
@@ -13,6 +14,9 @@ from core.session import (
 )
 
 st.set_page_config(page_title="BarberFlow", page_icon="💈")
+
+# Solo apariencia visual (CSS); no cambia el funcionamiento.
+aplicar_estilos("chat")
 
 try:
     validar_configuracion()

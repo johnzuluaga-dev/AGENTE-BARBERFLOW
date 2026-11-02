@@ -2,12 +2,16 @@ from datetime import date
 
 import streamlit as st
 
+from core.estilos import aplicar_estilos
 from tools.cita_tool import listar_citas
 
 st.set_page_config(
     page_title="BarberFlow · Panel del barbero",
     page_icon="🗓️",
 )
+
+# Solo apariencia visual (CSS); no cambia el funcionamiento.
+aplicar_estilos("panel")
 
 st.title("🗓️ Panel del barbero")
 
