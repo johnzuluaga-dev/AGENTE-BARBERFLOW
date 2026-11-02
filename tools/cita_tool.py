@@ -13,6 +13,7 @@ from langchain_google_genai import ChatGoogleGenerativeAI
 from config.settings import (
     GEMINI_API_KEY,
     GEMINI_MODEL,
+    GEMINI_MODEL_RESPALDO,
     REINTENTOS_MODELO,
     TIEMPO_ESPERA_MODELO,
 )
@@ -24,14 +25,20 @@ CITAS_FILE = Path(__file__).resolve().parents[1] / "data" / "citas.json"
 
 
 def _crear_priorizacion_chain():
-    """Chain fija: datos -> prompt -> modelo -> salida."""
-    model = ChatGoogleGenerativeAI(
-        model=GEMINI_MODEL,
-        api_key=GEMINI_API_KEY,
-        temperature=0.1,
-        timeout=TIEMPO_ESPERA_MODELO,
-        max_retries=REINTENTOS_MODELO,
-    )
+    """Chain fija: datos -> prompt -> modelo (con respaldo) -> salida."""
+
+    def crear(nombre_modelo: str) -> ChatGoogleGenerativeAI:
+        return ChatGoogleGenerativeAI(
+            model=nombre_modelo,
+            api_key=GEMINI_API_KEY,
+            temperature=0.1,
+            timeout=TIEMPO_ESPERA_MODELO,
+            max_retries=REINTENTOS_MODELO,
+        )
+
+    model = crear(GEMINI_MODEL)
+    if GEMINI_MODEL_RESPALDO and GEMINI_MODEL_RESPALDO != GEMINI_MODEL:
+        model = model.with_fallbacks([crear(GEMINI_MODEL_RESPALDO)])
     prompt = ChatPromptTemplate.from_messages(
         [
             ("system", PRIORIZACION_SYSTEM_PROMPT),

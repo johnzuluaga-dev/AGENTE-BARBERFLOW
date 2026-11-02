@@ -7,6 +7,10 @@ GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 
 GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-3.8-flash")
 
+# Modelo de respaldo: se usa automáticamente si el principal falla
+# (por ejemplo 503 "high demand" o sin cupo).
+GEMINI_MODEL_RESPALDO = os.getenv("GEMINI_MODEL_RESPALDO", "gemini-3.5-flash-lite")
+
 # Modelo de embeddings para el RAG (búsqueda en la información de la barbería).
 GEMINI_EMBEDDING_MODEL = os.getenv("GEMINI_EMBEDDING_MODEL", "gemini-embedding-001")
 

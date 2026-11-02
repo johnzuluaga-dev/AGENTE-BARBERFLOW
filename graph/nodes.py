@@ -11,6 +11,7 @@ from pydantic import BaseModel, Field
 from config.settings import (
     GEMINI_API_KEY,
     GEMINI_MODEL,
+    GEMINI_MODEL_RESPALDO,
     REINTENTOS_MODELO,
     TIEMPO_ESPERA_MODELO,
 )
@@ -33,14 +34,27 @@ class RutaConsulta(BaseModel):
     motivo: str = Field(description="Justificación breve de la selección.")
 
 
-def _crear_modelo(temperature: float) -> ChatGoogleGenerativeAI:
+def _crear_modelo(temperature: float, modelo: str = GEMINI_MODEL) -> ChatGoogleGenerativeAI:
     return ChatGoogleGenerativeAI(
-        model=GEMINI_MODEL,
+        model=modelo,
         api_key=GEMINI_API_KEY,
         temperature=temperature,
         timeout=TIEMPO_ESPERA_MODELO,
         max_retries=REINTENTOS_MODELO,
     )
+
+
+def _con_respaldo(temperature: float, preparar=lambda modelo: modelo):
+    """Modelo principal con un modelo de respaldo (LangChain with_fallbacks).
+
+    `preparar` agrega lo que necesite cada nodo (tools o salida estructurada)
+    a los dos modelos por igual.
+    """
+    principal = preparar(_crear_modelo(temperature))
+    if not GEMINI_MODEL_RESPALDO or GEMINI_MODEL_RESPALDO == GEMINI_MODEL:
+        return principal
+    respaldo = preparar(_crear_modelo(temperature, GEMINI_MODEL_RESPALDO))
+    return principal.with_fallbacks([respaldo])
 
 
 def texto_de_mensaje(mensaje: BaseMessage) -> str:
@@ -100,7 +114,7 @@ def enrutador_node(state: BarberState) -> dict:
             "pasos_ejecutados": state.get("pasos_ejecutados", []) + ["enrutador"],
         }
 
-    modelo = _crear_modelo(0).with_structured_output(RutaConsulta)
+    modelo = _con_respaldo(0, lambda m: m.with_structured_output(RutaConsulta))
     decision = modelo.invoke(
         [
             SystemMessage(content=ROUTER_SYSTEM_PROMPT),
@@ -116,7 +130,7 @@ def enrutador_node(state: BarberState) -> dict:
 
 def conceptual_node(state: BarberState) -> dict:
     """Responde sin herramientas usando el historial de mensajes."""
-    respuesta = _crear_modelo(0.2).invoke(
+    respuesta = _con_respaldo(0.2).invoke(
         [SystemMessage(content=CONCEPTUAL_SYSTEM_PROMPT)] + state["messages"]
     )
     return {
@@ -128,7 +142,7 @@ def conceptual_node(state: BarberState) -> dict:
 def agente_barberia_node(state: BarberState) -> dict:
     """Agente razonador con las tools vinculadas; decide si llamarlas."""
     system_prompt = AGENT_SYSTEM_TEMPLATE.format(nombre=state["cliente"]["nombre"])
-    modelo = _crear_modelo(0.1).bind_tools(TOOLS_BARBERIA)
+    modelo = _con_respaldo(0.1, lambda m: m.bind_tools(TOOLS_BARBERIA))
     respuesta = modelo.invoke([SystemMessage(content=system_prompt)] + state["messages"])
     return {
         "messages": [respuesta],

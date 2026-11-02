@@ -3,7 +3,7 @@
 Usa un "callback" de LangChain, que se entera de cada llamada al modelo y de
 cada tool que se ejecuta dentro del grafo. Por cada respuesta registra:
 tiempo total, llamadas al modelo, tokens (entrada, salida y total), tools
-usadas y errores. Cada registro también se escribe en los logs del servidor
+usadas, modelo que respondió y errores. Cada registro también se escribe en los logs del servidor
 (en Render se ven en la pestaña "Logs").
 """
 
@@ -32,12 +32,20 @@ class MetricasCallback(BaseCallbackHandler):
         self.tokens_salida = 0
         self.tools: list[str] = []
         self.errores: list[str] = []
+        self.modelos_ok: list[str] = []
+        self._modelo_por_llamada: dict = {}
 
     # --- Modelo de lenguaje ---
     def on_chat_model_start(self, serialized, messages, **kwargs) -> None:
         self.llamadas_modelo += 1
+        parametros = kwargs.get("invocation_params") or {}
+        nombre = parametros.get("model") or parametros.get("model_name") or "modelo"
+        self._modelo_por_llamada[kwargs.get("run_id")] = str(nombre).replace("models/", "")
 
     def on_llm_end(self, response, **kwargs) -> None:
+        nombre = self._modelo_por_llamada.get(kwargs.get("run_id"))
+        if nombre and nombre not in self.modelos_ok:
+            self.modelos_ok.append(nombre)
         for generaciones in response.generations:
             for generacion in generaciones:
                 mensaje = getattr(generacion, "message", None)
@@ -46,7 +54,8 @@ class MetricasCallback(BaseCallbackHandler):
                 self.tokens_salida += uso.get("output_tokens", 0) or 0
 
     def on_llm_error(self, error, **kwargs) -> None:
-        self.errores.append(f"Modelo: {str(error)[:200]}")
+        nombre = self._modelo_por_llamada.get(kwargs.get("run_id"), "modelo")
+        self.errores.append(f"{nombre}: {str(error)[:200]}")
 
     # --- Tools ---
     def on_tool_start(self, serialized, input_str, **kwargs) -> None:
@@ -81,6 +90,7 @@ class MedidorEjecucion:
             "tokens_salida": cb.tokens_salida,
             "tokens_total": cb.tokens_entrada + cb.tokens_salida,
             "tools": ", ".join(cb.tools) or "ninguna",
+            "modelos": ", ".join(cb.modelos_ok) or "ninguno",
             "errores": len(errores),
             "detalle_errores": errores,
         }

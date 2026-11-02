@@ -77,6 +77,7 @@ with st.sidebar:
             f"Tokens de entrada: {ultima['tokens_entrada']} · "
             f"salida: {ultima['tokens_salida']}"
         )
+        st.caption(f"Modelo que respondió: {ultima['modelos']}")
         for detalle in ultima["detalle_errores"]:
             st.caption(f"⚠️ {detalle}")
 
@@ -96,6 +97,7 @@ with st.sidebar:
                         "Llamadas": m["llamadas_modelo"],
                         "Tokens": m["tokens_total"],
                         "Tools": m["tools"],
+                        "Modelo": m["modelos"],
                         "Errores": m["errores"],
                     }
                     for m in historial_metricas
@@ -135,5 +137,12 @@ if prompt:
         # El error no queda en el checkpoint, así que se muestra sin rerun.
         with st.chat_message("assistant"):
             st.markdown(f"Ocurrió un error al procesar la solicitud: {error}")
+            if st.session_state.historial_metricas:
+                fallo = st.session_state.historial_metricas[-1]
+                st.caption(
+                    f"Registrado en métricas: {fallo['tiempo_s']} s · "
+                    f"{fallo['llamadas_modelo']} llamada(s) al modelo · "
+                    f"{fallo['errores']} error(es). Intenta de nuevo en un momento."
+                )
     else:
         st.rerun()

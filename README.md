@@ -75,11 +75,18 @@ START → enrutador ─┬─ conceptual ─────────────
 ## Métricas y observabilidad
 
 Cada respuesta registra: tiempo total, llamadas al modelo, tokens de
-entrada/salida, tools usadas y errores. Se ven en:
+entrada/salida, tools usadas, modelo que respondió y errores. Se ven en:
 
 - la barra lateral de la app (última respuesta + historial de la sesión);
 - los logs del servidor (en Render: pestaña **Logs**), en líneas que
   empiezan por `METRICAS`.
+
+## Modelo de respaldo
+
+Todas las llamadas al modelo usan `with_fallbacks` de LangChain: si
+`GEMINI_MODEL` falla (por ejemplo, error 503 por alta demanda o falta de
+cupo), la misma petición se repite con `GEMINI_MODEL_RESPALDO`. Las métricas
+muestran qué modelo respondió y qué fallos hubo.
 
 ## Instalar y ejecutar
 
@@ -106,7 +113,8 @@ entrada/salida, tools usadas y errores. Se ven en:
    GEMINI_MODEL=gemini-3.8-flash
    ```
 
-   Variables opcionales: `GEMINI_EMBEDDING_MODEL` (por defecto
+   Variables opcionales: `GEMINI_MODEL_RESPALDO` (por defecto
+   `gemini-3.5-flash-lite`), `GEMINI_EMBEDDING_MODEL` (por defecto
    `gemini-embedding-001`), `TIEMPO_ESPERA_MODELO` (segundos, por defecto 40)
    y `REINTENTOS_MODELO` (por defecto 1).
 
