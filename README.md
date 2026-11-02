@@ -115,8 +115,8 @@ muestran qué modelo respondió y qué fallos hubo.
 
    Variables opcionales: `GEMINI_MODEL_RESPALDO` (por defecto
    `gemini-3.5-flash-lite`), `GEMINI_EMBEDDING_MODEL` (por defecto
-   `gemini-embedding-001`), `TIEMPO_ESPERA_MODELO` (segundos, por defecto 40)
-   y `REINTENTOS_MODELO` (por defecto 1).
+   `gemini-embedding-001`), `TIEMPO_ESPERA_MODELO` (segundos de espera por llamada, por defecto 20)
+   y `REINTENTOS_MODELO` (intentos totales por modelo, por defecto 1).
 
 4. Ejecutar:
 

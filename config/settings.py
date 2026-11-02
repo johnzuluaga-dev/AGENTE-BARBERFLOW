@@ -14,11 +14,13 @@ GEMINI_MODEL_RESPALDO = os.getenv("GEMINI_MODEL_RESPALDO", "gemini-3.5-flash-lit
 # Modelo de embeddings para el RAG (búsqueda en la información de la barbería).
 GEMINI_EMBEDDING_MODEL = os.getenv("GEMINI_EMBEDDING_MODEL", "gemini-embedding-001")
 
-# Límite de espera por cada llamada al modelo (segundos) y reintentos.
-# Antes no había límite y la librería reintentaba hasta 6 veces, por eso la
-# app podía quedarse "cargando" varios minutos sin mostrar nada.
-TIEMPO_ESPERA_MODELO = int(os.getenv("TIEMPO_ESPERA_MODELO", "40"))
-REINTENTOS_MODELO = int(os.getenv("REINTENTOS_MODELO", "1"))
+# Límite de espera por cada llamada al modelo (segundos) y número de intentos.
+# Antes no había límite de tiempo y la librería hacía hasta 6 intentos, por
+# eso la app podía quedarse "cargando" varios minutos sin mostrar nada.
+# Ahora se hace 1 solo intento (sin reintentos): si el modelo principal falla
+# o tarda más de este tiempo, responde el modelo de respaldo.
+TIEMPO_ESPERA_MODELO = int(os.getenv("TIEMPO_ESPERA_MODELO", "20"))
+REINTENTOS_MODELO = int(os.getenv("REINTENTOS_MODELO", "1"))  # intentos totales
 
 
 def validar_configuracion() -> None:
